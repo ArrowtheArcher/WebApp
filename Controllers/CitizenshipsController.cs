@@ -22,7 +22,16 @@ namespace WebApp.Controllers
         // GET: Citizenships
         public async Task<IActionResult> Index()
         {
-            return View(await _context.Citizenships.ToListAsync());
+            var query = from Citizenship in _context.Citizenships
+                        join City in _context.Cities on Citizenship.CityId equals City.Id
+                        join Person in _context.Persons on Citizenship.PersonId equals Person.Id
+                        select new CitizenshipView
+                        {
+                            Citizenship = Citizenship,
+                            PersonName = Person.Name,
+                            CityName = City.Name
+                        };
+            return View(await query.ToListAsync());
         }
 
         // GET: Citizenships/Details/5
@@ -39,13 +48,16 @@ namespace WebApp.Controllers
             {
                 return NotFound();
             }
-
+            ViewData["PersonId"] = new SelectList(_context.Persons, "Id", "Name", citizenship.PersonId);
+            ViewData["CityId"] = new SelectList(_context.Cities, "Id", "Name", citizenship.CityId);
             return View(citizenship);
         }
 
         // GET: Citizenships/Create
         public IActionResult Create()
         {
+            ViewData["PersonId"] = new SelectList(_context.Persons, "Id", "Name");
+            ViewData["CityId"] = new SelectList(_context.Cities, "Id", "Name");
             return View();
         }
 
@@ -78,6 +90,8 @@ namespace WebApp.Controllers
             {
                 return NotFound();
             }
+            ViewData["PersonId"] = new SelectList(_context.Persons, "Id", "Name", citizenship.PersonId);
+            ViewData["CityId"] = new SelectList(_context.Cities, "Id", "Name", citizenship.CityId);
             return View(citizenship);
         }
 
@@ -113,6 +127,8 @@ namespace WebApp.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
+            ViewData["PersonId"] = new SelectList(_context.Persons, "Id", "Name", citizenship.PersonId);
+            ViewData["CityId"] = new SelectList(_context.Cities, "Id", "Name", citizenship.CityId);
             return View(citizenship);
         }
 
@@ -143,6 +159,17 @@ namespace WebApp.Controllers
             _context.Citizenships.Remove(citizenship);
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
+        }
+
+        [AcceptVerbs("Get", "Post")]
+        public async Task<ActionResult> MustBeUniqueCitizenship(long PersonId, long CityId)
+        {
+            if (_context.Citizenships.Any(x=> x.CityId == CityId && x.PersonId == PersonId))
+            {
+                return Json("Duplicate found");
+            }
+
+            return Json(true);
         }
 
         private bool CitizenshipExists(long id)
